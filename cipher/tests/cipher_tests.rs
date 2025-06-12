@@ -1,4 +1,4 @@
-use cipher::{Algorithm, Mode, Cipher};
+use libcipher::{Algorithm, Mode, Cipher};
 
 #[test]
 fn test_encrypt_aes() {
