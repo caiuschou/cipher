@@ -9,6 +9,7 @@ pub enum Error {
     InvalidIvLength,
     EncryptionFailed,
     DecryptionFailed,
+    UnpaddingFailed,
 }
 
 impl fmt::Display for Error {
@@ -18,6 +19,7 @@ impl fmt::Display for Error {
             Error::InvalidIvLength => write!(f, "Invalid IV length for the cipher"),
             Error::EncryptionFailed => write!(f, "Encryption failed"),
             Error::DecryptionFailed => write!(f, "Decryption failed"),
+            Error::UnpaddingFailed => write!(f, "Unpadding failed"),
         }
     }
 }
