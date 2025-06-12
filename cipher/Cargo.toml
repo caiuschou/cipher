@@ -1,0 +1,10 @@
+[package]
+name = "cipher"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aes = "0.8.4"
+cbc =  { version = "0.1.2", features = ["alloc"] }
+ecb = "0.1.2"
+block-padding = "0.3.3"
