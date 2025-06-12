@@ -30,7 +30,7 @@ pub struct Cipher {
 
 impl Cipher {
     pub fn new(algorithm: Algorithm, mode: Mode, key: Vec<u8>, iv: Option<Vec<u8>>) -> Result<Self, Error> {
-        let aes = AesCbc::new(key, iv.unwrap_or_else(|| vec![0; 16]));
+        let aes = Self::new_aes(algorithm, mode, key, iv);
         if aes.is_err() {
             return Err(aes.err().unwrap());
         }
@@ -40,6 +40,10 @@ impl Cipher {
             aes: Box::new(aes.unwrap()),
         };
         Ok(cipher)
+    }
+
+    pub fn new_aes(algorithm: Algorithm, mode: Mode, key: Vec<u8>, iv: Option<Vec<u8>>) -> Result<Aes, Error> {
+        AesCbc::new(key, iv.unwrap_or_else(|| vec![0; 16]));
     }
 
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
