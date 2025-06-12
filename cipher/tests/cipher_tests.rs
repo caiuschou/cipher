@@ -8,7 +8,8 @@ fn test_encrypt_aes() {
         Mode::CBC,
         vec![0; 16], // Example key
         Some(vec![0; 16]), // Example IV
-    );
+    ).unwrap();
+    
     let encrypted_data = encrypt.encrypt(data);
     assert_eq!(encrypted_data, data);
 }

@@ -1,3 +1,6 @@
+
+use crate::Error;
+
 pub enum Algorithm {
     AES,
 }
@@ -19,13 +22,15 @@ pub struct Cipher {
 }
 
 impl Cipher {
-    pub fn new(algorithm: Algorithm, mode: Mode, key: Vec<u8>, iv: Option<Vec<u8>>) -> Self {
-        Cipher {
-            algorithm,
-            mode,
-            key,
-            iv,
-        }
+    pub fn new(algorithm: Algorithm, mode: Mode, key: Vec<u8>, iv: Option<Vec<u8>>) -> Result<Self, Error> {
+        Ok(
+            Cipher {
+                algorithm,
+                mode,
+                key,
+                iv,
+            }
+        )
     }
 
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {

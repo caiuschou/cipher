@@ -18,19 +18,19 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-libcipher = "0.1.0"  # Replace with the latest version
+libcipher = "0.1.3"  # Replace with the latest version
 ```
 
 ## Example 
 
-```
+```rust
 use libcipher::{Cipher, Algorithm, Mode};
 
 fn main() {
     let key = b"your_secret_key".to_vec();
     let iv = None; // Use None for ECB mode
 
-    let cipher = Cipher::new(Algorithm::AES, Mode::ECB, key, iv);
+    let cipher = Cipher::new(Algorithm::AES, Mode::ECB, key, iv).unwrap();
 
     let data = b"Hello, world!";
     let encrypted_data = cipher.encrypt(data);
