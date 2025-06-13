@@ -1,7 +1,6 @@
 
-use crate::{aes::{Aes, AesCbc, AesEcb}, Algorithm, Error};
-
-
+use crate::{aes::{Aes, AesCbc, AesEcb}, key::{key::AsAny, secret_key_spec::SecretKeySpec}, Algorithm, Error, IvParameterSpec};
+use crate::key::key::Key;
 
 pub enum Mode {
     ECB,
@@ -48,6 +47,26 @@ impl Cipher {
             aes,
         };
         Ok(cipher)
+    }
+    
+    pub fn aes_ecb(key: SecretKeySpec, padding: Option<Padding>) -> Result<Self, Error> {
+        Self::new(
+            Algorithm::AES,
+            Mode::ECB,
+            padding,
+            key.key(),
+            None,
+        )
+    }
+
+    pub fn aes_cbc(key: SecretKeySpec, iv: IvParameterSpec, padding: Option<Padding>) -> Result<Self, Error> {
+        Self::new(
+            Algorithm::AES,
+            Mode::CBC,
+            padding,
+            key.key(),
+            Some(iv.iv()),
+        )
     }
 
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {

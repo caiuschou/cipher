@@ -6,6 +6,7 @@ use std::fmt;
 pub enum Error {
     /// Invalid key length for the cipher.
     InvalidKeyLength,
+    InvalidKeyType,
     InvalidIvLength,
     IvIsRequired,
     EncryptionFailed,
