@@ -1,7 +1,7 @@
 use aes::{cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyInit, KeyIvInit}, Aes128, Aes192, Aes256};
-use block_padding::{generic_array::GenericArray, UnpadError};
+use block_padding::{generic_array::GenericArray, Iso10126, UnpadError, ZeroPadding};
 use cbc::{self, Encryptor, Decryptor};
-
+use crate::cipher::Padding;
 use crate::Error;
 
 
@@ -26,7 +26,7 @@ pub struct AesEcb {
 }
 
 impl AesCbc {
-    pub fn new(key: Vec<u8>, iv: Vec<u8>) -> Result<Self, Error> {
+    pub fn new(key: Vec<u8>, iv: Vec<u8>, padding: Padding) -> Result<Self, Error> {
 
         let supported_key_length = [16, 24, 32];
         if !supported_key_length.contains(&key.len()) {
@@ -35,16 +35,16 @@ impl AesCbc {
 
         let size = key.len();
         let decryptor: Box<dyn DecryptorAdapter> = match size {
-            16 => Box::new(DecryptorAdapterAes128::new(key.clone(), iv.clone())),
-            24 => Box::new(DecryptorAdapterAes192::new(key.clone(), iv.clone())),
-            32 => Box::new(DecryptorAdapterAes256::new(key.clone(), iv.clone())),
+            16 => Box::new(DecryptorAdapterAes128::new(key.clone(), iv.clone(), padding.clone())),
+            24 => Box::new(DecryptorAdapterAes192::new(key.clone(), iv.clone(), padding.clone())),
+            32 => Box::new(DecryptorAdapterAes256::new(key.clone(), iv.clone(), padding.clone())),
             _ => return Err(Error::InvalidKeyLength),
         };
 
         let encryptor: Box<dyn EncryptorAdapter> = match size {
-            16 => Box::new(EncryptorAdapterAes128::new(key.clone(), iv.clone())),
-            24 => Box::new(EncryptorAdapterAes192::new(key.clone(), iv.clone())),
-            32 => Box::new(EncryptorAdapterAes256::new(key.clone(), iv.clone())),
+            16 => Box::new(EncryptorAdapterAes128::new(key.clone(), iv.clone(), padding.clone())),
+            24 => Box::new(EncryptorAdapterAes192::new(key.clone(), iv.clone(), padding.clone())),
+            32 => Box::new(EncryptorAdapterAes256::new(key.clone(), iv.clone(), padding.clone())),
             _ => return Err(Error::InvalidKeyLength),
         };
 
@@ -75,7 +75,7 @@ impl Aes for AesCbc {
 }
 
 impl AesEcb {
-    pub fn new(key: Vec<u8>) -> Result<Self, Error> {
+    pub fn new(key: Vec<u8>, padding: Padding) -> Result<Self, Error> {
 
         let supported_key_length = [16, 24, 32];
         if !supported_key_length.contains(&key.len()) {
@@ -84,16 +84,16 @@ impl AesEcb {
 
         let size = key.len();
         let encryptor: Box<dyn EncryptorAdapter> = match size {
-            16 => Box::new(EncryptorAdapterAesEcb128::new(key.clone())),
-            24 => Box::new(EncryptorAdapterAesEcb192::new(key.clone())),
-            32 => Box::new(EncryptorAdapterAesEcb256::new(key.clone())),
+            16 => Box::new(EncryptorAdapterAesEcb128::new(key.clone(), padding.clone())),
+            24 => Box::new(EncryptorAdapterAesEcb192::new(key.clone(), padding.clone())),
+            32 => Box::new(EncryptorAdapterAesEcb256::new(key.clone(), padding.clone())),
             _ => return Err(Error::InvalidKeyLength),
         };
 
         let decryptor: Box<dyn DecryptorAdapter> = match size {
-            16 => Box::new(DecryptorAdapterAesEcb128::new(key.clone())),
-            24 => Box::new(DecryptorAdapterAesEcb192::new(key.clone())),
-            32 => Box::new(DecryptorAdapterAesEcb256::new(key.clone())),
+            16 => Box::new(DecryptorAdapterAesEcb128::new(key.clone(), padding.clone())),
+            24 => Box::new(DecryptorAdapterAesEcb192::new(key.clone(), padding.clone())),
+            32 => Box::new(DecryptorAdapterAesEcb256::new(key.clone(), padding.clone())),
             _ => return Err(Error::InvalidKeyLength),
         };
 
@@ -138,11 +138,11 @@ macro_rules! define_decryptor_impl {
     ) => {
         struct $name {
             decryptor: Decryptor<$cipher>,
+            padding: Padding
         }
 
         impl $name {
-            pub fn new(key: Vec<u8>, iv: Vec<u8>) -> Self {
-
+            pub fn new(key: Vec<u8>, iv: Vec<u8>, padding: Padding) -> Self {
                 let key_ga = GenericArray::from_slice(&key);
                 let iv_ga = GenericArray::from_slice(&iv);
 
@@ -150,14 +150,22 @@ macro_rules! define_decryptor_impl {
 
                 Self {
                     decryptor,
+                    padding
                 }
             }
         }
-    
 
         impl DecryptorAdapter for $name {
             fn decrypt_vec(&self, data: &[u8]) -> Result<Vec<u8>, UnpadError> {
-                (&self.decryptor).clone().decrypt_padded_vec_mut::<Pkcs7>(data)
+                let decryptor = self.decryptor.clone();
+                match self.padding {
+                    Padding::PKCS7 => decryptor.decrypt_padded_vec_mut::<Pkcs7>(data),
+                    Padding::ZeroPadding => decryptor.decrypt_padded_vec_mut::<block_padding::ZeroPadding>(data),
+                    Padding::Iso10126 => decryptor.decrypt_padded_vec_mut::<block_padding::Iso10126>(data),
+                    Padding::AnsiX923 => decryptor.decrypt_padded_vec_mut::<block_padding::AnsiX923>(data),
+                    Padding::Iso7816 => decryptor.decrypt_padded_vec_mut::<block_padding::Iso7816>(data),
+                    Padding::NoPadding => decryptor.decrypt_padded_vec_mut::<block_padding::NoPadding>(data),
+                }
             }
         }
     };
@@ -186,18 +194,18 @@ macro_rules! define_encryptor_impl {
     ) => {
         struct $name {
             encryptor: Encryptor<$cipher>,
+            padding: Padding
         }
 
         impl $name {
-            pub fn new(key: Vec<u8>, iv: Vec<u8>) -> Self {
-
+            pub fn new(key: Vec<u8>, iv: Vec<u8>, padding: Padding) -> Self {
                 let key_ga = GenericArray::from_slice(&key);
                 let iv_ga = GenericArray::from_slice(&iv);
-
                 let encryptor = Encryptor::<$cipher>::new(key_ga, iv_ga);
 
                 Self {
-                    encryptor: encryptor,
+                    encryptor,
+                    padding
                 }
             }
         }
@@ -205,7 +213,15 @@ macro_rules! define_encryptor_impl {
 
         impl EncryptorAdapter for $name {
             fn encrypt_vec(&self, data: &[u8]) -> Vec<u8> {
-                (&self.encryptor).clone().encrypt_padded_vec_mut::<Pkcs7>(data)
+                let encryptor = self.encryptor.clone();
+                match self.padding {
+                    Padding::PKCS7 => encryptor.encrypt_padded_vec_mut::<Pkcs7>(data),
+                    Padding::ZeroPadding => encryptor.encrypt_padded_vec_mut::<block_padding::ZeroPadding>(data),
+                    Padding::Iso10126 => encryptor.encrypt_padded_vec_mut::<block_padding::Iso10126>(data),
+                    Padding::AnsiX923 => encryptor.encrypt_padded_vec_mut::<block_padding::AnsiX923>(data),
+                    Padding::Iso7816 => encryptor.encrypt_padded_vec_mut::<block_padding::Iso7816>(data),
+                    Padding::NoPadding => encryptor.encrypt_padded_vec_mut::<block_padding::NoPadding>(data),
+                }
             }
         }
     };
@@ -233,17 +249,17 @@ macro_rules! define_ecb_encryptor_impl {
     ) => {
         struct $name {
             encryptor: ecb::Encryptor<$cipher>,
+            padding: Padding,
         }
 
         impl $name {
-            pub fn new(key: Vec<u8>) -> Self {
-
+            pub fn new(key: Vec<u8>, padding: Padding) -> Self {
                 let key_ga = GenericArray::from_slice(&key);
-
                 let encryptor = ecb::Encryptor::<$cipher>::new(key_ga);
 
                 Self {
-                    encryptor: encryptor,
+                    encryptor,
+                    padding
                 }
             }
         }
@@ -251,7 +267,15 @@ macro_rules! define_ecb_encryptor_impl {
 
         impl EncryptorAdapter for $name {
             fn encrypt_vec(&self, data: &[u8]) -> Vec<u8> {
-                (&self.encryptor).clone().encrypt_padded_vec_mut::<Pkcs7>(data)
+                let encryptor = (&self.encryptor).clone();
+                match self.padding {
+                    Padding::PKCS7 => encryptor.encrypt_padded_vec_mut::<Pkcs7>(data),
+                    Padding::ZeroPadding => encryptor.encrypt_padded_vec_mut::<block_padding::ZeroPadding>(data),
+                    Padding::Iso10126 => encryptor.encrypt_padded_vec_mut::<block_padding::Iso10126>(data),
+                    Padding::AnsiX923 => encryptor.encrypt_padded_vec_mut::<block_padding::AnsiX923>(data),
+                    Padding::Iso7816 => encryptor.encrypt_padded_vec_mut::<block_padding::Iso7816>(data),
+                    Padding::NoPadding => encryptor.encrypt_padded_vec_mut::<block_padding::NoPadding>(data),
+                }
             }
         }
     };
@@ -279,17 +303,17 @@ macro_rules! define_ecb_decryptor_impl {
     ) => {
         struct $name {
             decryptor: ecb::Decryptor<$cipher>,
+            padding: Padding,
         }
 
         impl $name {
-            pub fn new(key: Vec<u8>) -> Self {
-
+            pub fn new(key: Vec<u8>, padding: Padding) -> Self {
                 let key_ga = GenericArray::from_slice(&key);
-
                 let decryptor = ecb::Decryptor::<$cipher>::new(key_ga);
 
                 Self {
-                    decryptor: decryptor,
+                    decryptor,
+                    padding
                 }
             }
         }
@@ -297,7 +321,15 @@ macro_rules! define_ecb_decryptor_impl {
 
         impl DecryptorAdapter for $name {
             fn decrypt_vec(&self, data: &[u8]) -> Result<Vec<u8>, UnpadError> {
-                (&self.decryptor).clone().decrypt_padded_vec_mut::<Pkcs7>(data)
+                let decryptor = self.decryptor.clone();
+                match self.padding {
+                    Padding::PKCS7 => decryptor.decrypt_padded_vec_mut::<Pkcs7>(data),
+                    Padding::ZeroPadding => decryptor.decrypt_padded_vec_mut::<block_padding::ZeroPadding>(data),
+                    Padding::Iso10126 => decryptor.decrypt_padded_vec_mut::<block_padding::Iso10126>(data),
+                    Padding::AnsiX923 => decryptor.decrypt_padded_vec_mut::<block_padding::AnsiX923>(data),
+                    Padding::Iso7816 => decryptor.decrypt_padded_vec_mut::<block_padding::Iso7816>(data),
+                    Padding::NoPadding => decryptor.decrypt_padded_vec_mut::<block_padding::NoPadding>(data),
+                }
             }
         }
     };
