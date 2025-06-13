@@ -1,5 +1,5 @@
 
-use crate::{aes::{Aes, AesCbc}, Error};
+use crate::{aes::{Aes, AesCbc, AesEcb}, Error};
 
 pub enum Algorithm {
     AES,
@@ -30,20 +30,25 @@ pub struct Cipher {
 
 impl Cipher {
     pub fn new(algorithm: Algorithm, mode: Mode, key: Vec<u8>, iv: Option<Vec<u8>>) -> Result<Self, Error> {
-        let aes = Self::new_aes(algorithm, mode, key, iv);
-        if aes.is_err() {
-            return Err(aes.err().unwrap());
-        }
+
+        let aes: Result<Box<dyn Aes>, Error> = match mode {
+            Mode::CBC => {
+                let iv_value = iv.ok_or(Error::IvIsRequired);
+                 AesCbc::new(key, iv_value?)
+                    .map(|a| Box::new(a) as Box<dyn Aes>)
+            },
+            Mode::ECB => AesEcb::new(key).map(|a| Box::new(a) as Box<dyn Aes>),
+        };
+        let aes = match aes {
+            Ok(a) => a,
+            Err(e) => return Err(e),
+        };
         let cipher = Cipher {
             algorithm,
             mode,
-            aes: Box::new(aes.unwrap()),
+            aes,
         };
         Ok(cipher)
-    }
-
-    pub fn new_aes(algorithm: Algorithm, mode: Mode, key: Vec<u8>, iv: Option<Vec<u8>>) -> Result<Aes, Error> {
-        AesCbc::new(key, iv.unwrap_or_else(|| vec![0; 16]));
     }
 
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {

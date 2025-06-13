@@ -7,9 +7,11 @@ pub enum Error {
     /// Invalid key length for the cipher.
     InvalidKeyLength,
     InvalidIvLength,
+    IvIsRequired,
     EncryptionFailed,
     DecryptionFailed,
     UnpaddingFailed,
+    UnsupportedMode
 }
 
 impl fmt::Display for Error {
@@ -20,6 +22,9 @@ impl fmt::Display for Error {
             Error::EncryptionFailed => write!(f, "Encryption failed"),
             Error::DecryptionFailed => write!(f, "Decryption failed"),
             Error::UnpaddingFailed => write!(f, "Unpadding failed"),
+            Error::UnsupportedMode => write!(f, "Unsupported mode for the cipher"),
+            Error::IvIsRequired => write!(f, "IV is required for this operation"),
+            _ => write!(f, "An unknown error occurred"),
         }
     }
 }
