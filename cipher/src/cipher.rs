@@ -1,9 +1,7 @@
 
-use crate::{aes::{Aes, AesCbc, AesEcb}, Error};
+use crate::{aes::{Aes, AesCbc, AesEcb}, Algorithm, Error};
 
-pub enum Algorithm {
-    AES,
-}
+
 
 pub enum Mode {
     ECB,

@@ -12,6 +12,8 @@ aes = "0.8.4"
 cbc =  { version = "0.1.2", features = ["alloc"] }
 ecb = "0.1.2"
 block-padding = "0.3.3"
+rsa = "0.9.8"
+pem = "3.0.5"
 
 [dev-dependencies]
 hex = "0.4.3"
